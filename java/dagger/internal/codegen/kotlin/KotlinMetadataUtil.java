@@ -18,6 +18,8 @@ package dagger.internal.codegen.kotlin;
 
 import static com.google.auto.common.AnnotationMirrors.getAnnotatedAnnotations;
 import static com.google.auto.common.MoreElements.isAnnotationPresent;
+import static com.google.common.base.Preconditions.checkState;
+import static dagger.internal.codegen.extension.DaggerStreams.toImmutableMap;
 import static dagger.internal.codegen.langmodel.DaggerElements.closestEnclosingTypeElement;
 import static kotlinx.metadata.Flag.Class.IS_COMPANION_OBJECT;
 import static kotlinx.metadata.Flag.Class.IS_DATA;
@@ -26,7 +28,9 @@ import static kotlinx.metadata.Flag.IS_PRIVATE;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import dagger.internal.codegen.extension.DaggerCollectors;
+import dagger.internal.codegen.kotlin.KotlinMetadata.FunctionMetadata;
 import java.lang.annotation.Annotation;
 import java.util.Optional;
 import javax.inject.Inject;
@@ -100,6 +104,11 @@ public final class KotlinMetadataUtil {
         && metadataFactory.create(typeElement).classMetadata().flags(IS_COMPANION_OBJECT);
   }
 
+  /** Returns {@code true} if this type element is a Kotlin object or companion object. */
+  public boolean isObjectOrCompanionObjectClass(TypeElement typeElement) {
+    return isObjectClass(typeElement) || isCompanionObjectClass(typeElement);
+  }
+
   /* Returns {@code true} if this type element has a Kotlin Companion Object. */
   public boolean hasEnclosedCompanionObject(TypeElement typeElement) {
     return hasMetadata(typeElement)
@@ -131,6 +140,15 @@ public final class KotlinMetadataUtil {
   }
 
   /**
+   * Returns {@code true} if the given type element was declared {@code internal} in its Kotlin
+   * source.
+   */
+  public boolean isVisibilityInternal(TypeElement type) {
+    return hasMetadata(type)
+        && metadataFactory.create(type).classMetadata().flags(Flag.IS_INTERNAL);
+  }
+
+  /**
    * Returns {@code true} if the given executable element was declared {@code internal} in its
    * Kotlin source.
    */
@@ -146,6 +164,17 @@ public final class KotlinMetadataUtil {
   public boolean containsConstructorWithDefaultParam(TypeElement typeElement) {
     return hasMetadata(typeElement)
         && metadataFactory.create(typeElement).containsConstructorWithDefaultParam();
+  }
+
+  /**
+   * Returns a map mapping all method signatures within the given class element, including methods
+   * that it inherits from its ancestors, to their method names.
+   */
+  public ImmutableMap<String, String> getAllMethodNamesBySignature(TypeElement element) {
+    checkState(
+        hasMetadata(element), "Can not call getAllMethodNamesBySignature for non-Kotlin class");
+    return metadataFactory.create(element).classMetadata().functionsBySignature().values().stream()
+        .collect(toImmutableMap(FunctionMetadata::signature, FunctionMetadata::name));
   }
 
   /**

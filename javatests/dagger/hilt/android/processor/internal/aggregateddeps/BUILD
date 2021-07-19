@@ -36,7 +36,7 @@ compiler_test(
         "@google_bazel_common//third_party/java/compile_testing",
         "@google_bazel_common//third_party/java/junit",
         "@google_bazel_common//third_party/java/truth",
-        "//javatests/dagger/hilt/android/processor:android_compilers",
+        "//java/dagger/hilt/android/testing/compile",
     ],
 )
 
@@ -46,7 +46,7 @@ compiler_test(
     compiler_deps = [
         "//java/dagger/hilt:entry_point",
         "//java/dagger/hilt:install_in",
-        "//java/dagger/hilt/android:early_test_entry_point",
+        "//java/dagger/hilt/android:early_entry_point",
         "//java/dagger/hilt/android/components",
         "//java/dagger/hilt/android/testing:hilt_android_test",
         "@androidsdk//:platforms/android-30/android.jar",
@@ -55,7 +55,7 @@ compiler_test(
         "@google_bazel_common//third_party/java/compile_testing",
         "@google_bazel_common//third_party/java/junit",
         "@google_bazel_common//third_party/java/truth",
-        "//javatests/dagger/hilt/android/processor:android_compilers",
+        "//java/dagger/hilt/android/testing/compile",
     ],
 )
 

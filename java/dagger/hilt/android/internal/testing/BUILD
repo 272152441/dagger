@@ -21,7 +21,6 @@ java_library(
     name = "test_injector",
     testonly = 1,
     srcs = [
-        "TestApplicationInjector.java",
         "TestInjector.java",
     ],
 )
@@ -87,6 +86,7 @@ android_library(
     deps = [
         ":test_application_component_manager",
         ":test_application_component_manager_holder",
+        "//java/dagger/hilt/android/internal",
         "//java/dagger/hilt/internal:component_manager",
         "//java/dagger/hilt/internal:preconditions",
         "@maven//:androidx_test_core",

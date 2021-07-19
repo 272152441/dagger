@@ -16,10 +16,11 @@
 
 package dagger.internal.codegen.validation;
 
-import static com.google.auto.common.MoreElements.isAnnotationPresent;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.base.Util.reentrantComputeIfAbsent;
 import static dagger.internal.codegen.binding.ComponentCreatorAnnotation.getCreatorAnnotations;
+import static dagger.internal.codegen.langmodel.DaggerElements.isAnnotationPresent;
+import static javax.lang.model.SourceVersion.isKeyword;
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.STATIC;
@@ -29,11 +30,12 @@ import com.google.auto.common.MoreElements;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
-import dagger.BindsInstance;
 import dagger.internal.codegen.base.ClearableCache;
 import dagger.internal.codegen.binding.ComponentCreatorAnnotation;
 import dagger.internal.codegen.binding.ErrorMessages;
 import dagger.internal.codegen.binding.ErrorMessages.ComponentCreatorMessages;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
 import dagger.internal.codegen.langmodel.DaggerElements;
 import dagger.internal.codegen.langmodel.DaggerTypes;
 import java.util.HashMap;
@@ -58,11 +60,14 @@ public final class ComponentCreatorValidator implements ClearableCache {
   private final DaggerElements elements;
   private final DaggerTypes types;
   private final Map<TypeElement, ValidationReport<TypeElement>> reports = new HashMap<>();
+  private final KotlinMetadataUtil metadataUtil;
 
   @Inject
-  ComponentCreatorValidator(DaggerElements elements, DaggerTypes types) {
+  ComponentCreatorValidator(
+      DaggerElements elements, DaggerTypes types, KotlinMetadataUtil metadataUtil) {
     this.elements = elements;
     this.types = types;
+    this.metadataUtil = metadataUtil;
   }
 
   @Override
@@ -206,6 +211,7 @@ public final class ComponentCreatorValidator implements ClearableCache {
     }
 
     private void validateBuilder() {
+      validateClassMethodName();
       ExecutableElement buildMethod = null;
       for (ExecutableElement method : elements.getUnimplementedMethods(type)) {
         switch (method.getParameters().size()) {
@@ -244,6 +250,21 @@ public final class ComponentCreatorValidator implements ClearableCache {
       }
     }
 
+    private void validateClassMethodName() {
+      // Only Kotlin class can have method name the same as a Java reserved keyword, so only check
+      // the method name if this class is a Kotlin class.
+      if (metadataUtil.hasMetadata(type)) {
+        metadataUtil
+            .getAllMethodNamesBySignature(type)
+            .forEach(
+                (signature, name) -> {
+                  if (isKeyword(name)) {
+                    report.addError("Can not use a Java keyword as method name: " + signature);
+                  }
+                });
+      }
+    }
+
     private void validateSetterMethod(ExecutableElement method) {
       TypeMirror returnType = types.resolveExecutableType(method, type.asType()).getReturnType();
       if (returnType.getKind() != TypeKind.VOID && !types.isSubtype(type.asType(), returnType)) {
@@ -257,8 +278,8 @@ public final class ComponentCreatorValidator implements ClearableCache {
 
       VariableElement parameter = method.getParameters().get(0);
 
-      boolean methodIsBindsInstance = isAnnotationPresent(method, BindsInstance.class);
-      boolean parameterIsBindsInstance = isAnnotationPresent(parameter, BindsInstance.class);
+      boolean methodIsBindsInstance = isAnnotationPresent(method, TypeNames.BINDS_INSTANCE);
+      boolean parameterIsBindsInstance = isAnnotationPresent(parameter, TypeNames.BINDS_INSTANCE);
       boolean bindsInstance = methodIsBindsInstance || parameterIsBindsInstance;
 
       if (methodIsBindsInstance && parameterIsBindsInstance) {
@@ -308,7 +329,7 @@ public final class ComponentCreatorValidator implements ClearableCache {
       }
 
       for (VariableElement parameter : method.getParameters()) {
-        if (!isAnnotationPresent(parameter, BindsInstance.class)
+        if (!isAnnotationPresent(parameter, TypeNames.BINDS_INSTANCE)
             && parameter.asType().getKind().isPrimitive()) {
           error(
               method,
@@ -333,7 +354,7 @@ public final class ComponentCreatorValidator implements ClearableCache {
         return false;
       }
 
-      if (isAnnotationPresent(method, BindsInstance.class)) {
+      if (isAnnotationPresent(method, TypeNames.BINDS_INSTANCE)) {
         error(
             method,
             messages.factoryMethodMayNotBeAnnotatedWithBindsInstance(),
